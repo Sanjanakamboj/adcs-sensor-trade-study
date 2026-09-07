@@ -539,6 +539,20 @@ def main() -> None:
     axE.set_ylabel("Percent of orbit [%]")
     axE.set_title("Sensitivity to Beta Angle (Eclipse Geometry)")
     axE.legend(fontsize=8)
+    # Explicit callout: the high-beta collapse of Sun+mag availability (seen
+    # here between beta ~50-60 deg, where it drops to 0%) is driven by
+    # Sun-sensor FOV / nadir-pointing body geometry coupling, NOT by eclipse
+    # (which is still >0% at that point) - see docs/availability_methodology.md.
+    axE.annotate(
+        "Sun+mag collapse here is FOV/pointing-geometry\n"
+        "driven, NOT eclipse-driven (eclipse is still >0%\n"
+        "at this beta) - see availability_methodology.md",
+        xy=(60.0, 0.0), xycoords="data",
+        xytext=(28.0, 27.0), textcoords="data",
+        fontsize=7.8, ha="left", va="center",
+        arrowprops=dict(arrowstyle="->", color="black", lw=1.2),
+        bbox=dict(boxstyle="round", facecolor="#fff8dc", edgecolor="black", alpha=0.95),
+    )
     fig.tight_layout()
     fig.savefig(RESULTS_DIR / "fig10_fov_and_eclipse_sensitivity.png")
     plt.close(fig)
@@ -555,7 +569,7 @@ def main() -> None:
     ax.plot(mag_rows["rate_hz"], mag_rows["updates_per_orbit"], color=MAG_COLOR, marker="^", lw=2,
             label="Magnetometer rate (Sun+mag) - essentially flat")
     ax.set_xlabel("Sensor update rate [Hz]")
-    ax.set_ylabel("Usable full-attitude updates / orbit [-]")
+    ax.set_ylabel("Usable full-attitude updates per orbit")
     ax.set_title("Usable Full-Attitude Update Cadence vs. Sensor Update Rate")
     ax.legend(fontsize=8)
     fig.tight_layout()

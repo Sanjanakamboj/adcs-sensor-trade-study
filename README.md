@@ -139,11 +139,11 @@ separate lump number):
 
 | Weighting scenario | Star tracker score | Sun+mag score | Winner |
 |---|---|---|---|
-| baseline | 0.7636 | 0.6635 | Star tracker |
-| accuracy_priority | 0.8564 | 0.6490 | Star tracker |
-| resource_constrained | 0.7730 | 0.7773 | **Sun+mag (flips)** |
-| availability_priority | 0.7872 | 0.5610 | Star tracker |
-| cost_complexity_priority | 0.5730 | 0.7462 | **Sun+mag (flips)** |
+| Baseline | 0.7636 | 0.6635 | Star tracker |
+| Accuracy priority | 0.8564 | 0.6490 | Star tracker |
+| Resource constrained | 0.7730 | 0.7773 | **Sun+mag (flips)** |
+| Availability priority | 0.7872 | 0.5610 | Star tracker |
+| Cost / complexity priority | 0.5730 | 0.7462 | **Sun+mag (flips)** |
 
 **2 of the 4** non-baseline named scenarios flip the recommendation.
 A Monte Carlo sweep of 20,000 weight vectors sampled uniformly over the

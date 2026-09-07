@@ -507,7 +507,7 @@ def main() -> None:
     plt.close(fig)
 
     # Figure 13: normalized utility heatmap
-    fig, ax = plt.subplots(figsize=(9, 3.2))
+    fig, ax = plt.subplots(figsize=(10.5, 3.4), constrained_layout=True)
     norm_table = baseline_result.normalized_table.loc[archs, list(CATEGORIES)]
     im = ax.imshow(norm_table.values, cmap="RdYlGn", vmin=0, vmax=1, aspect="auto")
     ax.set_xticks(range(len(CATEGORIES)))
@@ -517,10 +517,10 @@ def main() -> None:
     for i in range(len(archs)):
         for j in range(len(CATEGORIES)):
             ax.text(j, i, f"{norm_table.values[i, j]:.2f}", ha="center", va="center", fontsize=9)
-    cbar = fig.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
-    cbar.set_label("Normalized utility [0=worst, 1=best]")
+    cbar = fig.colorbar(im, ax=ax, fraction=0.046, pad=0.06)
+    cbar.set_label("Normalized utility [0 = worst, 1 = best]", fontsize=10)
+    cbar.ax.tick_params(labelsize=9)
     ax.set_title("Normalized Trade-Matrix Utility Heatmap (NOT raw physical units)")
-    fig.tight_layout()
     fig.savefig(RESULTS_DIR / "fig13_normalized_utility_heatmap.png")
     plt.close(fig)
 
@@ -557,8 +557,18 @@ def main() -> None:
         marker_x = xi - width / 2 if w == "star_tracker" else xi + width / 2
         marker_y = (star_vals[xi] if w == "star_tracker" else sunmag_vals[xi]) + 0.02
         ax.annotate("WINNER", (marker_x, marker_y), ha="center", fontsize=8, fontweight="bold")
+    SCENARIO_DISPLAY_LABELS = {
+        "baseline": "Baseline",
+        "accuracy_priority": "Accuracy priority",
+        "resource_constrained": "Resource constrained",
+        "availability_priority": "Availability priority",
+        "cost_complexity_priority": "Cost / complexity priority",
+    }
     ax.set_xticks(x)
-    ax.set_xticklabels(list(SCENARIOS.keys()), rotation=20, ha="right", fontsize=9)
+    ax.set_xticklabels(
+        [SCENARIO_DISPLAY_LABELS.get(s, s) for s in SCENARIOS],
+        rotation=20, ha="right", fontsize=9,
+    )
     ax.set_ylabel("Total weighted score [-]")
     ax.set_ylim(0, 1.05)
     ax.set_title("Decision Sensitivity Across the 5 Named Weighting Scenarios")
@@ -613,43 +623,129 @@ def main() -> None:
     plt.close(fig)
 
     # Figure 18: final recommendation summary graphic
+    #
+    # Compact, professionally laid-out summary panel: labeled section rows
+    # with dividers instead of a single dumped text block. Every number and
+    # caveat below is identical to the figure this replaces - only the
+    # presentation (layout/typography/badges) changed.
     import textwrap
 
-    fig, ax = plt.subplots(figsize=(11, 6.5))
+    n_sunmag_fail = sum(not v for v in req_results["sun_plus_mag"].values())
+    n_reqs = len(REQUIREMENTS)
+    star_score = baseline_result.totals["star_tracker"]
+    sunmag_score = baseline_result.totals["sun_plus_mag"]
+    winner_label = ARCH_LABELS[baseline_result.winner]
+    pct_star = mc.fraction_favoring_star_tracker * 100
+    pct_sunmag = mc.fraction_favoring_sun_plus_mag * 100
+    robustness_tag = "ROBUST" if robust else "MISSION-PRIORITY-DEPENDENT"
+
+    PASS_COLOR = "#2ca02c"
+    FAIL_COLOR = "#d62728"
+
+    # Layout in physical inches: the axes spans the whole figure and its
+    # data limits are set to the figure's own width/height, so 1 data unit
+    # == 1 inch. This lets each text block's height be computed from its
+    # actual line count/fontsize and the cursor auto-advance accordingly -
+    # avoiding any manually-guessed spacing that could clip content.
+    FIG_W, FIG_H = 10.0, 7.1
+    LEFT, RIGHT = 0.45, FIG_W - 0.45
+
+    fig = plt.figure(figsize=(FIG_W, FIG_H))
+    ax = fig.add_axes((0, 0, 1, 1))
     ax.axis("off")
-    wrap_width = 78
-    raw_lines = [
-        "MILESTONE 3 FINAL RECOMMENDATION SUMMARY",
-        "",
-        f"Hard requirements: Star tracker PASSES all {len(REQUIREMENTS)}; "
-        f"Sun+mag FAILS {sum(not v for v in req_results['sun_plus_mag'].values())} of {len(REQUIREMENTS)}.",
-        f"Baseline weighted score: Star tracker {baseline_result.totals['star_tracker']:.3f} "
-        f"vs. Sun+mag {baseline_result.totals['sun_plus_mag']:.3f} -> "
-        f"WINNER: {ARCH_LABELS[baseline_result.winner]}.",
-        f"Named-scenario flips: {n_flips} of 4 alternative priority scenarios flip the decision.",
-        f"Monte Carlo weight-space split: "
-        f"{mc.fraction_favoring_star_tracker*100:.1f}% star tracker / "
-        f"{mc.fraction_favoring_sun_plus_mag*100:.1f}% Sun+mag "
-        f"({'ROBUST' if robust else 'MISSION-PRIORITY-DEPENDENT'}).",
-        "",
-        "RECOMMENDATION: for baseline (balanced) mission priorities, select the "
-        "STAR TRACKER, driven primarily by operational availability/continuity, "
-        "not raw accuracy alone.",
-        "CONDITIONAL CAVEAT: the recommendation flips to the Sun sensor + "
-        "magnetometer suite under a genuinely mass/power-constrained or "
-        "cost/complexity-constrained mission priority set.",
-    ]
-    wrapped_blocks = []
-    for line_txt in raw_lines:
-        if line_txt == "":
-            wrapped_blocks.append("")
-        else:
-            wrapped_blocks.append("\n".join(textwrap.wrap(line_txt, width=wrap_width)))
-    full_text = "\n\n".join(wrapped_blocks)
-    ax.text(0.03, 0.97, full_text, transform=ax.transAxes, fontsize=11.5,
-            va="top", ha="left", family="monospace", wrap=False,
-            bbox=dict(boxstyle="round", facecolor="#f5f5f5", edgecolor="black"))
-    fig.tight_layout()
+    ax.set_xlim(0, FIG_W)
+    ax.set_ylim(0, FIG_H)
+
+    LINE_SPACING = 1.45
+
+    def text_height(text, fontsize):
+        n_lines = text.count("\n") + 1
+        return n_lines * fontsize * LINE_SPACING / 72.0
+
+    def draw(cy, x, text, fontsize, ha="left", **kwargs):
+        """Draw text with top-left anchor at (x, cy); return new cursor y."""
+        ax.text(x, cy, text, fontsize=fontsize, va="top", ha=ha, **kwargs)
+        return cy - text_height(text, fontsize)
+
+    def hline(cy, lw=1.0, color="#999999", gap_before=0.08, gap_after=0.14):
+        cy -= gap_before
+        ax.plot([LEFT, RIGHT], [cy, cy], color=color, lw=lw)
+        return cy - gap_after
+
+    def section_header(cy, text):
+        return draw(cy, LEFT, text, 13, fontweight="bold", color="#222222")
+
+    def body_line(cy, text, fontsize=10.5, wrap=95, **kwargs):
+        wrapped = "\n".join(textwrap.wrap(text, width=wrap)) if wrap else text
+        return draw(cy, LEFT + 0.15, wrapped, fontsize, color="#222222", **kwargs)
+
+    def badge(cy, x, text, color, fontsize=10.5, ha="left"):
+        ax.text(x, cy, text, fontsize=fontsize, fontweight="bold", va="top", ha=ha,
+                color="white", bbox=dict(boxstyle="round,pad=0.35", facecolor=color, edgecolor="none"))
+        return cy - text_height(text, fontsize) * 1.5
+
+    # --- Title -------------------------------------------------------
+    cy = FIG_H - 0.4
+    cy = draw(cy, FIG_W / 2, "MILESTONE 3 FINAL RECOMMENDATION SUMMARY", 16,
+              ha="center", fontweight="bold", color="#111111")
+    cy -= 0.05
+    cy = draw(cy, FIG_W / 2,
+              "ADCS Sensor Suite Trade Study — Star Tracker vs. Sun Sensor + Magnetometer",
+              10.5, ha="center", color="#555555", style="italic")
+    cy = hline(cy, lw=1.6, color="#333333", gap_before=0.15, gap_after=0.28)
+
+    # --- Section 1: Hard requirements --------------------------------
+    cy = section_header(cy, "1. HARD REQUIREMENTS")
+    cy -= 0.10
+    badge(cy, LEFT + 0.15, f"✓ PASS — ALL {n_reqs}", PASS_COLOR)
+    cy = draw(cy, LEFT + 2.35, f"Star tracker passes all {n_reqs} representative hard requirements.", 10.5)
+    cy -= 0.14
+    badge(cy, LEFT + 0.15, f"✗ FAIL — {n_sunmag_fail} of {n_reqs}", FAIL_COLOR)
+    cy = draw(cy, LEFT + 2.35,
+              f"Sun+mag fails {n_sunmag_fail} of {n_reqs} representative hard requirements.", 10.5)
+    cy = hline(cy)
+
+    # --- Section 2: Baseline weighted score ---------------------------
+    cy = section_header(cy, "2. BASELINE WEIGHTED SCORE")
+    cy -= 0.10
+    row_cy = cy
+    draw(row_cy, LEFT + 0.15, "Star tracker", 10.5, fontweight="bold", color=STAR_COLOR)
+    draw(row_cy, LEFT + 2.0, f"{star_score:.3f}", 10.5)
+    draw(row_cy, LEFT + 3.3, "Sun + magnetometer", 10.5, fontweight="bold", color=SUNMAG_COLOR)
+    cy = draw(row_cy, LEFT + 5.7, f"{sunmag_score:.3f}", 10.5)
+    cy -= 0.14
+    badge(cy, LEFT + 0.15, f"WINNER: {winner_label.upper()}", ARCH_COLORS[baseline_result.winner])
+    cy -= 0.32
+    cy = hline(cy)
+
+    # --- Section 3: Robustness ----------------------------------------
+    cy = section_header(cy, "3. ROBUSTNESS")
+    cy -= 0.10
+    cy = body_line(cy, f"Named-scenario flips: {n_flips} of 4 alternative priority "
+                       "scenarios flip the decision.")
+    cy -= 0.05
+    cy = body_line(cy, f"Monte Carlo weight-space split (n={mc.n_samples}): "
+                       f"{pct_star:.1f}% favor star tracker / {pct_sunmag:.1f}% favor Sun+mag.")
+    cy -= 0.14
+    badge(cy, LEFT + 0.15, robustness_tag, "#555555" if not robust else PASS_COLOR)
+    cy -= 0.32
+    cy = hline(cy)
+
+    # --- Section 4: Recommendation -------------------------------------
+    cy = section_header(cy, "4. RECOMMENDATION")
+    cy -= 0.10
+    cy = body_line(cy, "For baseline (balanced) mission priorities, select the STAR TRACKER, "
+                       "driven primarily by operational availability/continuity, not raw "
+                       "accuracy alone.", fontsize=11.5, fontweight="bold")
+    cy = hline(cy)
+
+    # --- Section 5: Conditional caveat ----------------------------------
+    cy = section_header(cy, "5. CONDITIONAL CAVEAT")
+    cy -= 0.10
+    cy = body_line(cy, "The recommendation flips to the Sun sensor + magnetometer suite "
+                       "under a genuinely mass/power-constrained or cost/complexity-constrained "
+                       "mission priority set.")
+
     fig.savefig(RESULTS_DIR / "fig18_final_recommendation_summary.png")
     plt.close(fig)
 
