@@ -1,0 +1,2 @@
+n_samples,seed,fraction_favoring_star_tracker,fraction_favoring_sun_plus_mag,fraction_tied,score_diff_mean,score_diff_median,score_diff_std
+20000,42,0.5629,0.4371,0.0,0.017945920418676292,0.02250607807091931,0.1479022624110641

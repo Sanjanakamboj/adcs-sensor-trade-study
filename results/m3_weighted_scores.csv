@@ -1,0 +1,6 @@
+scenario,star_tracker_score,sun_plus_mag_score,winner,weight_accuracy,weight_availability,weight_cadence,weight_mass,weight_power,weight_cost,weight_complexity
+baseline,0.7635706777035811,0.6635167558975898,star_tracker,0.2,0.2,0.1,0.15,0.15,0.1,0.1
+accuracy_priority,0.8563802692237463,0.6489786448729309,star_tracker,0.45,0.15,0.1,0.1,0.1,0.05,0.05
+resource_constrained,0.7730353388517904,0.7773417112821284,sun_plus_mag,0.1,0.1,0.05,0.35,0.3,0.05,0.05
+availability_priority,0.7872426135939942,0.5610460840457978,star_tracker,0.1,0.35,0.2,0.1,0.1,0.075,0.075
+cost_complexity_priority,0.5730353388517906,0.7461750446154617,sun_plus_mag,0.1,0.1,0.05,0.1,0.1,0.3,0.25

@@ -1,0 +1,3 @@
+architecture,worst_axis_error_deg,condition_number,full_attitude_observable,availability_fraction,longest_outage_s,updates_per_orbit,cadence_hz,poorly_conditioned_fraction,mass_kg,avg_power_w,peak_power_w,cost_score_1to5,complexity_score_1to5
+Star tracker,0.008333333333333333,1.0,True,0.8729748362633575,369.0,10130.0,1.746180875684858,0.0,0.45,1.5,2.5,4.0,3.2
+Sun + magnetometer,0.6729115755464621,1.903281352831308,True,0.2318166149603585,3939.0,6723.0,1.1588918092032874,0.0,0.25,0.7,1.0,1.0,2.6
