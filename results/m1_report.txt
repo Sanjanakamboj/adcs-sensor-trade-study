@@ -1,0 +1,110 @@
+==============================================================================
+ADCS-06 Sensor Trade Study — Milestone 1 Verification Report
+==============================================================================
+Scope: sensor physics models + instantaneous 3-axis attitude-information
+geometry ONLY. No trade matrix, no final sensor-suite recommendation.
+Fixed random seed: 20240607
+
+------------------------------------------------------------------------------
+1. REPRESENTATIVE BASELINE ASSUMPTIONS (illustrative, not vendor specs)
+------------------------------------------------------------------------------
+  Star tracker : sigma = 30.0 arcsec (1-sigma/axis), update rate = 2.0 Hz
+  Sun sensor   : sigma = 0.50 deg (1-sigma), FOV half-angle = 60.0 deg, update rate = 5.0 Hz
+  Magnetometer : sigma = 0.50 deg (1-sigma), update rate = 10.0 Hz, bias = [0. 0. 0.] T, scale = [1. 1. 1.]
+  Inertial Sun vector      : [1. 0. 0.]
+  Inertial B-field vector  : [0.e+00 0.e+00 3.e-05] T (|B| = 3.00e-05 T, representative LEO magnitude)
+
+------------------------------------------------------------------------------
+2. SINGLE-VECTOR RANK DEFICIENCY
+------------------------------------------------------------------------------
+  rank(single Sun vector)          = 2  (expected 2 of 3)
+  rank(single magnetometer vector) = 2  (expected 2 of 3)
+  rank(two orthogonal vectors)     = 3  (expected 3 of 3)
+  Star-tracker rank                = N/A (star tracker measures full attitude directly, not a single vector)
+
+------------------------------------------------------------------------------
+3. HEALTHY-GEOMETRY COMPARISON (Sun-mag separation = 90 deg)
+------------------------------------------------------------------------------
+  Star tracker (isotropic model):
+    information eigenvalues [rad^-2] = [47272411.44 47272411.44 47272411.44]
+    condition number of J            = 1.000
+    RMS attitude-error proxy         = 30.00 arcsec (0.008333 deg)
+    worst-axis 1-sigma error proxy   = 30.00 arcsec (0.008333 deg)
+
+  Sun + magnetometer (90 deg separation):
+    information eigenvalues [rad^-2] = [13131.225 13131.225 26262.451]
+    condition number of J            = 2.000
+    RMS attitude-error proxy         = 0.4564 deg
+    worst-axis 1-sigma error proxy   = 0.5000 deg
+
+------------------------------------------------------------------------------
+4. SUN-MAGNETIC SEPARATION ANGLE SWEEP (1 to 179 deg)
+------------------------------------------------------------------------------
+  angle =   5.0 deg | cond(J) =    525.582 | worst-axis error =  8.1054 deg | rank = 3
+  angle =  45.0 deg | cond(J) =      6.828 | worst-axis error =  0.9239 deg | rank = 3
+  angle =  90.0 deg | cond(J) =      2.000 | worst-axis error =  0.5000 deg | rank = 3
+  angle = 135.0 deg | cond(J) =      6.828 | worst-axis error =  0.9239 deg | rank = 3
+  angle = 175.0 deg | cond(J) =    525.582 | worst-axis error =  8.1054 deg | rank = 3
+
+  Singularity check at EXACT 0 deg and 180 deg:
+    angle =   0.0 deg | rank = 2 | min singular value = 0.000e+00 | cond(J) = inf
+    angle = 180.0 deg | rank = 2 | min singular value = 8.660e-17 | cond(J) = inf
+
+------------------------------------------------------------------------------
+5. INFORMATION / COVARIANCE SCALING SANITY CHECKS
+------------------------------------------------------------------------------
+  Halving star-tracker sigma multiplies isotropic information by 4.000 (expected 4.0)
+  Doubling star-tracker sigma multiplies worst-axis error proxy by 2.000 (expected 2.0)
+
+==============================================================================
+6. WRITTEN ENGINEERING CONCLUSIONS
+==============================================================================
+  Q: Why can a star tracker provide full instantaneous 3-axis attitude
+     information?
+  A: It does not measure a single line-of-sight vector — it triangulates
+     many catalog star positions in its focal plane simultaneously and
+     solves directly for a full attitude quaternion/DCM. Under the
+     isotropic simplification used here, its information matrix is
+     J_star = (1/sigma^2) I_3, full rank by construction.
+
+  Q: Why can a single Sun sensor not?
+  A: A Sun sensor outputs one body-frame unit vector. Its measurement
+     Jacobian H = -skew(v_b) has rank 2 (skew-symmetric matrices of a
+     nonzero vector are always rank-deficient by exactly one): rotation
+     of the body about the Sun-line itself changes nothing measurable.
+
+  Q: Why can a single magnetometer not?
+  A: Same argument as the Sun sensor — it is also a single unit-vector
+     measurement, so rotation about the local field-line direction is
+     unobservable from that one reading.
+
+  Q: Under what geometry does Sun + magnetometer recover full attitude?
+  A: Whenever the two vectors are non-collinear, the stacked 6x3 Jacobian
+     reaches rank 3, recovering full 3-axis instantaneous information.
+     Conditioning is BEST near 90 deg separation.
+
+  Q: When does that architecture become poorly conditioned?
+  A: As the Sun-magnetic separation angle approaches 0 deg or 180 deg,
+     the condition number of J grows without bound; at exactly 0/180 deg
+     the geometry is singular (rank drops to 2, min singular value -> 0).
+
+  Q: Which architecture has more uniform instantaneous attitude accuracy
+     under the simplified assumptions?
+  A: The star tracker: its isotropic model gives attitude information that
+     is, by construction, independent of geometry/attitude. The Sun+mag
+     architecture's accuracy varies strongly (and can degrade sharply)
+     with the instantaneous Sun-magnetic separation angle.
+
+  Q: What does this analysis NOT yet say?
+  A: Nothing here addresses mass, power, cost, eclipse/Sun-exclusion
+     availability duty cycle, blinding/stray light, update-rate effects
+     on a real closed-loop control bandwidth, or full estimator (EKF)
+     performance with gyro propagation and measurement history. Those are
+     explicitly DEFERRED to a later milestone.
+
+******************************************************************************
+* NO FINAL SENSOR-SUITE RECOMMENDATION IS MADE IN THIS MILESTONE. *
+* Final architecture selection is explicitly deferred to a later     *
+* milestone that incorporates availability, mass/power/cost, and     *
+* full estimator performance.                                       *
+******************************************************************************
