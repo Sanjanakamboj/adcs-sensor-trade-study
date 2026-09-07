@@ -1,0 +1,194 @@
+==============================================================================
+ADCS-06 Sensor Trade Study - Milestone 2 Availability Verification Report
+==============================================================================
+Scope: orbit/time-based sensor AVAILABILITY and asynchronous UPDATE
+CADENCE only. Builds on Milestone 1's sensor physics and instantaneous
+attitude-information geometry (reused unmodified). No trade matrix, no
+mass/power/cost modeling, no final sensor-suite recommendation.
+Fixed random seed: 20240607 (informational only - nothing here uses RNG)
+
+------------------------------------------------------------------------------
+1. REPRESENTATIVE ORBIT/ENVIRONMENT ASSUMPTIONS (illustrative, not a
+   specific mission orbit - see docs/availability_methodology.md)
+------------------------------------------------------------------------------
+  Altitude                    = 600.0 km (circular, two-body Kepler)
+  Orbital period              = 5801.2 s (96.69 min)
+  Beta angle                  = 20.0 deg
+  Eclipse fraction (closed-form) = 0.3579 (35.79% of orbit)
+  Attitude profile            = idealized nadir-pointing (LVLH): +Z nadir,
+                                 +X velocity direction, +Y ~orbit-normal
+  Star-tracker mounting       = anti-nadir (deep-space, -Z) boresight
+  Star-tracker exclusion half-angle = 30.0 deg
+  Sun-sensor FOV half-angle   = 60.0 deg
+  Magnetic field model        = tilted dipole DIRECTION, 11.5 deg tilt,
+                                 constant magnitude 3.00e-05 T
+  Update rates                 = star tracker 2.0 Hz, Sun sensor 5.0 Hz, magnetometer 10.0 Hz
+  Sun+mag synchronization window = 100.0 ms (half the slower sensor's period)
+  Conditioning threshold      = cond(J) <= 10.0 => 'well-conditioned'
+                                 (sqrt(10) = 3.16x worst/best-axis error ratio)
+
+------------------------------------------------------------------------------
+2. ONE-ORBIT AVAILABILITY SUMMARY
+------------------------------------------------------------------------------
+  Star tracker              : available  87.30% of orbit | longest outage =   369.0 s ( 6.15 min) | num outages = 2
+  Sun sensor                : available  23.18% of orbit | longest outage =  3939.0 s (65.65 min) | num outages = 2
+  Magnetometer              : available 100.00% of orbit | longest outage =     0.0 s ( 0.00 min) | num outages = 0
+  Sun+mag (full attitude)   : available  23.18% of orbit | longest outage =  3939.0 s (65.65 min) | num outages = 2
+
+  Star-tracker unavailability cause breakdown:
+    ok             :  87.30% of samples
+    sun_exclusion  :  12.70% of samples
+  Sun-sensor unavailability cause breakdown:
+    fov            :  41.04% of samples
+    eclipse        :  35.78% of samples
+    ok             :  23.18% of samples
+  Sun+mag unavailability cause breakdown:
+    fov            :  41.04% of samples
+    eclipse        :  35.78% of samples
+    ok             :  23.18% of samples
+
+  Longest-outage root cause:
+    Star tracker : sun_exclusion
+    Sun sensor   : eclipse
+    Sun+mag      : eclipse
+
+------------------------------------------------------------------------------
+3. SUN+MAG ATTITUDE-INFORMATION QUALITY WHILE GEOMETRICALLY AVAILABLE
+------------------------------------------------------------------------------
+  Samples with Sun+mag vectors usable AND full-rank: 1345 of 5802 (23.18% of orbit)
+    condition number: min=1.503  median=1.903  P95=2.045  max=2.047
+    worst-axis error proxy [deg]: min=0.5315  median=0.6729  P95=0.7230  max=0.7236
+    fraction of 'full-rank' time that is POORLY conditioned (cond > 10.0): 0.00%
+
+------------------------------------------------------------------------------
+4. ASYNCHRONOUS UPDATE-RATE / CADENCE ANALYSIS
+------------------------------------------------------------------------------
+  Star tracker (direct full attitude, own 2.0 Hz rate):
+    usable full-attitude updates/orbit = 10130.0  (effective 1.7462 Hz)
+  Sun+mag (async 5.0 Hz / 10.0 Hz, sync window 100.0 ms):
+    usable full-attitude updates/orbit = 6723.0  (effective 1.1589 Hz)
+
+  Sensitivity check: raising magnetometer rate 10 Hz -> 50 Hz (5x) with Sun-sensor rate UNCHANGED:
+    usable full-attitude updates/orbit: 6723.0 -> 6723.0 (change: +0.0)
+    Conclusion: a faster magnetometer ALONE does not materially raise the usable
+    full-attitude update cadence, because a magnetometer measurement alone is
+    rank-2 (see information.py) - the Sun sensor's own availability/rate remains
+    the bottleneck for Sun+mag full-attitude updates.
+
+------------------------------------------------------------------------------
+5. SENSITIVITY STUDIES (all deterministic)
+------------------------------------------------------------------------------
+  (a) Star-tracker availability vs. exclusion half-angle:
+        5.0 deg -> 100.00% available
+       10.0 deg -> 100.00% available
+       20.0 deg ->  99.98% available
+       30.0 deg ->  87.30% available
+       45.0 deg ->  77.11% available
+       60.0 deg ->  67.84% available
+       90.0 deg ->  49.98% available
+      Monotonic non-increasing: True
+
+  (b) Sun-sensor / Sun+mag availability vs. FOV half-angle:
+       15.0 deg -> sun=  0.00%  sunmag=  0.00%
+       30.0 deg -> sun= 12.69%  sunmag= 12.69%
+       45.0 deg -> sun= 18.55%  sunmag= 18.55%
+       60.0 deg -> sun= 23.18%  sunmag= 23.18%
+       90.0 deg -> sun= 32.13%  sunmag= 32.13%
+      120.0 deg -> sun= 41.05%  sunmag= 41.05%
+      179.0 deg -> sun= 64.22%  sunmag= 64.22%
+      Monotonic non-decreasing (Sun sensor): True
+
+  (c) Eclipse fraction / Sun-sensor / Sun+mag availability vs. beta angle:
+      beta=  0.0 deg -> eclipse=36.70%  sun= 23.30%  sunmag= 23.30%
+      beta= 10.0 deg -> eclipse=36.49%  sun= 23.29%  sunmag= 23.29%
+      beta= 20.0 deg -> eclipse=35.79%  sun= 23.18%  sunmag= 23.18%
+      beta= 30.0 deg -> eclipse=34.48%  sun= 22.96%  sunmag= 22.96%
+      beta= 40.0 deg -> eclipse=32.24%  sun= 22.56%  sunmag= 22.56%
+      beta= 50.0 deg -> eclipse=28.26%  sun= 21.63%  sunmag= 21.63%
+      beta= 60.0 deg -> eclipse=19.87%  sun=  0.00%  sunmag=  0.00%
+      beta= 70.0 deg -> eclipse= 0.00%  sun=  0.00%  sunmag=  0.00%
+      Eclipse fraction monotonic non-increasing in beta: True
+
+  (d) Usable full-attitude updates/orbit vs. sensor update rate:
+      star_tracker_rate_hz   =    0.5 Hz ->   2532.0 updates/orbit
+      star_tracker_rate_hz   =    1.0 Hz ->   5065.0 updates/orbit
+      star_tracker_rate_hz   =    2.0 Hz ->  10130.0 updates/orbit
+      star_tracker_rate_hz   =    4.0 Hz ->  20260.0 updates/orbit
+      star_tracker_rate_hz   =    8.0 Hz ->  40521.0 updates/orbit
+      sun_sensor_rate_hz     =    1.0 Hz ->   1345.0 updates/orbit
+      sun_sensor_rate_hz     =    2.0 Hz ->   2689.0 updates/orbit
+      sun_sensor_rate_hz     =    5.0 Hz ->   6723.0 updates/orbit
+      sun_sensor_rate_hz     =   10.0 Hz ->  13445.0 updates/orbit
+      sun_sensor_rate_hz     =   20.0 Hz ->  19451.0 updates/orbit
+      magnetometer_rate_hz   =    5.0 Hz ->   6723.0 updates/orbit
+      magnetometer_rate_hz   =   10.0 Hz ->   6723.0 updates/orbit
+      magnetometer_rate_hz   =   20.0 Hz ->   6723.0 updates/orbit
+      magnetometer_rate_hz   =   50.0 Hz ->   6723.0 updates/orbit
+      Star-tracker-rate updates monotonic increasing: True
+      Sun-sensor-rate updates monotonic increasing: True
+      Magnetometer-rate updates essentially FLAT (by construction): True
+
+==============================================================================
+6. ANSWERS TO MILESTONE 2 QUESTIONS
+==============================================================================
+  Q1. Fraction of orbit each architecture can do a full attitude observation:
+      Star tracker = 87.30%   Sun+mag = 23.18%
+      (Sun sensor ALONE = 23.18% of orbit geometrically visible, but a
+       single Sun-sensor vector is only rank-2 - it never gives full attitude
+       by itself; magnetometer is modeled as always geometrically 'available'
+       but likewise only rank-2 alone.)
+
+  Q2. Longest-outage root cause:
+      Star tracker: sun_exclusion (369.0 s)
+      Sun sensor:   eclipse (3939.0 s)
+      Sun+mag:      eclipse (3939.0 s)
+
+  Q3. Fraction of Sun+mag 'geometrically usable' time that is poorly conditioned:
+      0.00% of the full-rank-usable time (cond(J) > 10.0).
+
+  Q4. Effective Sun+mag full-attitude update cadence:
+      6723.0 updates/orbit (1.1589 Hz effective),
+      vs. star tracker direct 10130.0 updates/orbit (1.7462 Hz).
+
+  Q5. Star-tracker availability sensitivity to exclusion angle:
+      monotonically non-increasing, from 100.0% at 5 deg down to 50.0% at 90 deg.
+
+  Q6. Sun+mag availability sensitivity to eclipse fraction (beta) and FOV:
+      Widening FOV from 15 to 179 deg raises Sun+mag availability from 0.0% to 64.2%.
+      Raising beta from 0 to 70 deg drops eclipse fraction from 36.7% to 0.0%, and (in this nadir-pointing/velocity-
+      boresight geometry) Sun+mag availability moves from 23.3% to 0.0% (FOV-geometry coupling can
+      dominate the eclipse effect at high beta - see docs/availability_methodology.md).
+
+  Q7. Does the magnetometer's higher rate alone materially improve full-attitude
+      update availability? NO - confirmed above: usable updates/orbit stayed at
+      6723.0 across magnetometer rates 5-50 Hz. This is BY
+      CONSTRUCTION: a magnetometer measurement alone is rank-2 (geometry.py), so no
+      amount of extra magnetometer samples recovers the missing 3rd degree of
+      freedom - only a second, non-collinear, AVAILABLE vector (the Sun sensor,
+      whose own eclipse/FOV-limited availability is the true bottleneck) can.
+
+  Q8. Stronger operational availability/continuity (availability + quality ONLY,
+      not mass/power/cost): STAR TRACKER - 87.30% available with 369 s longest outage,
+      vs. Sun+mag at 23.18% available with 3939 s longest outage. The star
+      tracker's ONLY outage driver in this model is Sun-exclusion geometry; Sun+mag
+      additionally loses availability to eclipse and Sun-sensor FOV geometry.
+
+  Q9. What limitations prevent M2 alone from making the final sensor-suite
+      recommendation?
+      - No mass, power, or cost modeling (a star tracker is typically heavier,
+        more power-hungry, and more expensive than a Sun sensor + magnetometer).
+      - No full gyro-propagated estimator (MEKF/EKF) - outages here are treated as
+        instantaneous measurement gaps, not propagated through a real attitude
+        filter with process noise and gyro drift between updates.
+      - No closed-loop ADCS/control-bandwidth analysis of what update cadence is
+        actually SUFFICIENT for a given mission's pointing requirements.
+      - Illustrative orbit/attitude/eclipse/field models (circular orbit, fixed
+        nadir-pointing profile, cylindrical shadow, tilted-dipole field direction),
+        not high-fidelity ephemeris or a full IGRF geomagnetic field model.
+      - No vendor/product-specific hardware qualification claims.
+
+******************************************************************************
+* NO FINAL SENSOR-SUITE RECOMMENDATION IS MADE IN THIS MILESTONE. *
+* Milestone 3 is expected to add mass/power/cost modeling and the      *
+* eventual weighted trade matrix + final sensor-suite recommendation. *
+******************************************************************************
